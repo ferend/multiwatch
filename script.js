@@ -8,37 +8,31 @@ document.body.insertBefore(errorMessage, videoGrid);
 
 let videos = JSON.parse(localStorage.getItem('videos')) || [];
 
-// Load saved videos
 function loadVideos() {
   videos.forEach((video) => addVideoToGrid(video.url, video.type));
 }
 
-// Save videos to localStorage
 function saveVideos() {
   localStorage.setItem('videos', JSON.stringify(videos));
 }
 
-// Show error message
 function showError(message) {
   errorMessage.textContent = message;
   errorMessage.style.display = 'block';
   setTimeout(() => errorMessage.style.display = 'none', 3000);
 }
 
-// Extract YouTube video ID
 function extractYouTubeID(url) {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// Extract Twitch channel name
 function extractTwitchChannel(url) {
   const match = url.match(/(?:www\.|go\.)?twitch\.tv\/([^\/\s?]+)/);
   return match ? match[1] : null;
 }
 
-// Add video to grid
 function addVideoToGrid(url, type) {
   const videoContainer = document.createElement('div');
   videoContainer.classList.add('video-container');
@@ -85,7 +79,6 @@ function addVideoToGrid(url, type) {
   videoContainer.append(videoIframe, controlButtons, closeButton);
   videoGrid.appendChild(videoContainer);
 
-  // Drag-and-Drop functionality
   videoContainer.addEventListener('dragstart', (e) => {
     e.dataTransfer.setData('text/plain', url);
   });
@@ -109,7 +102,6 @@ function addVideoToGrid(url, type) {
   });
 }
 
-// Add video on submit
 submitButton.addEventListener('click', () => {
   const link = input.value.trim();
   if (!link) return showError('Please enter a valid link');
@@ -129,12 +121,10 @@ submitButton.addEventListener('click', () => {
   input.value = '';
 });
 
-// Clear all videos
 clearAllButton.addEventListener('click', () => {
   videoGrid.innerHTML = '';
   videos = [];
   saveVideos();
 });
 
-// Load saved videos on page load
 loadVideos();
