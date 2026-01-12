@@ -1,18 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Multiwatch</title>
-  <link rel="stylesheet" type="text/css" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
-<body style="background-color: #1a1a1a; color: white;">
-  <h1 id="title">Multiwatch</h1>
-  <div class="input-container">
-    <input id="input" type="text" placeholder="Enter a YouTube or Twitch link">
-    <button id="submit-button">Add Video</button>
-    <button id="clear-all-button">Clear All</button>
-  </div>
-  <div id="video-grid"></div>
-  <script src="script.js"></script>
+
+<body>
+<h1 id="title">Multiwatch</h1>
+
+<div class="input-container">
+  <input id="input" type="text" placeholder="Enter a YouTube or Twitch link" autocomplete="off" />
+  <button id="submit-button">Add Video</button>
+  <button id="clear-all-button">Clear All</button>
+</div>
+
+<div id="error-message" class="error-message" aria-live="polite"></div>
+
+<div id="video-grid"></div>
+
+<script src="script.js"></script>
 </body>
 </html>

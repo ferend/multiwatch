@@ -1,130 +1,213 @@
-const videoGrid = document.getElementById('video-grid');
-const input = document.getElementById('input');
-const submitButton = document.getElementById('submit-button');
-const clearAllButton = document.getElementById('clear-all-button');
-const errorMessage = document.createElement('div');
-errorMessage.classList.add('error-message');
-document.body.insertBefore(errorMessage, videoGrid);
+const videoGrid = document.getElementById("video-grid");
+const input = document.getElementById("input");
+const submitButton = document.getElementById("submit-button");
+const clearAllButton = document.getElementById("clear-all-button");
+const errorMessage = document.getElementById("error-message");
 
-let videos = JSON.parse(localStorage.getItem('videos')) || [];
+const STORAGE_KEY = "videos_v2";
+const MAX_VIDEOS = 12;
 
-function loadVideos() {
-  videos.forEach((video) => addVideoToGrid(video.url, video.type));
+// -------------------- Storage --------------------
+let videos = loadVideosFromStorage();
+
+function loadVideosFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
-function saveVideos() {
-  localStorage.setItem('videos', JSON.stringify(videos));
+function saveVideosToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(videos));
 }
 
+// -------------------- UI helpers --------------------
 function showError(message) {
   errorMessage.textContent = message;
-  errorMessage.style.display = 'block';
-  setTimeout(() => errorMessage.style.display = 'none', 3000);
+  errorMessage.style.display = "block";
+  clearTimeout(showError._t);
+  showError._t = setTimeout(() => {
+    errorMessage.style.display = "none";
+    errorMessage.textContent = "";
+  }, 3000);
 }
 
-function extractYouTubeID(url) {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
+function safeHostname() {
+  return window.location.hostname || "localhost";
 }
 
-function extractTwitchChannel(url) {
-  const match = url.match(/(?:www\.|go\.)?twitch\.tv\/([^\/\s?]+)/);
-  return match ? match[1] : null;
-}
-
-function addVideoToGrid(url, type) {
-  const videoContainer = document.createElement('div');
-  videoContainer.classList.add('video-container');
-  videoContainer.draggable = true;
-
-  let embedUrl;
-  if (type === 'youtube') {
-    const videoId = extractYouTubeID(url);
-    if (!videoId) return showError('Invalid YouTube link');
-    embedUrl = `https://www.youtube.com/embed/${videoId}`;
-  } else if (type === 'twitch') {
-    const channel = extractTwitchChannel(url);
-    if (!channel) return showError('Invalid Twitch channel');
-    embedUrl = `https://player.twitch.tv/?channel=${channel}&parent=${window.location.hostname}`;
+// -------------------- URL parsing --------------------
+function parseInputLink(raw) {
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return { ok: false, error: "Please enter a valid URL (https://…)" };
   }
 
-  const videoIframe = document.createElement('iframe');
-  videoIframe.classList.add('video-iframe');
-  videoIframe.src = embedUrl;
-  videoIframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
-  videoIframe.allowFullscreen = true;
+  const host = url.hostname.replace(/^www\./, "").toLowerCase();
 
-  const controlButtons = document.createElement('div');
-  controlButtons.classList.add('control-buttons');
-
-  const playPauseButton = document.createElement('button');
-  playPauseButton.classList.add('control-button');
-  playPauseButton.innerHTML = '⏯️';
-  playPauseButton.title = 'Play/Pause';
-  playPauseButton.addEventListener('click', () => {
-    videoIframe.contentWindow.postMessage('{"event":"command","func":"' + (videoIframe.src.includes('youtube') ? 'pauseVideo' : 'pause') + '","args":""}', '*');
-  });
-
-  const closeButton = document.createElement('button');
-  closeButton.classList.add('close-button');
-  closeButton.innerHTML = '×';
-  closeButton.title = 'Close video';
-  closeButton.addEventListener('click', () => {
-    videoContainer.remove();
-    videos = videos.filter((video) => video.url !== url);
-    saveVideos();
-  });
-
-  videoContainer.append(videoIframe, controlButtons, closeButton);
-  videoGrid.appendChild(videoContainer);
-
-  videoContainer.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('text/plain', url);
-  });
-
-  videoContainer.addEventListener('dragover', (e) => {
-    e.preventDefault();
-  });
-
-  videoContainer.addEventListener('drop', (e) => {
-    e.preventDefault();
-    const draggedUrl = e.dataTransfer.getData('text/plain');
-    const draggedIndex = videos.findIndex((video) => video.url === draggedUrl);
-    const targetIndex = videos.findIndex((video) => video.url === url);
-
-    if (draggedIndex !== -1 && targetIndex !== -1) {
-      [videos[draggedIndex], videos[targetIndex]] = [videos[targetIndex], videos[draggedIndex]];
-      saveVideos();
-      videoGrid.innerHTML = '';
-      loadVideos();
+  // YouTube
+  if (host === "youtube.com" || host === "m.youtube.com") {
+    const id = url.searchParams.get("v");
+    if (id && id.length === 11) {
+      return { ok: true, type: "youtube", videoId: id };
     }
-  });
-}
 
-submitButton.addEventListener('click', () => {
-  const link = input.value.trim();
-  if (!link) return showError('Please enter a valid link');
+    const parts = url.pathname.split("/").filter(Boolean);
+    const embedIdx = parts.indexOf("embed");
+    if (embedIdx !== -1 && parts[embedIdx + 1]?.length === 11) {
+      return { ok: true, type: "youtube", videoId: parts[embedIdx + 1] };
+    }
 
-  let type;
-  if (link.includes('youtube') || link.includes('youtu.be')) {
-    type = 'youtube';
-  } else if (link.includes('twitch.tv')) {
-    type = 'twitch';
-  } else {
-    return showError('Only YouTube and Twitch links are supported');
+    return { ok: false, error: "Invalid YouTube link" };
   }
 
-  videos.push({ url: link, type });
-  saveVideos();
-  addVideoToGrid(link, type);
-  input.value = '';
+  if (host === "youtu.be") {
+    const id = url.pathname.replace("/", "");
+    if (id.length === 11) {
+      return { ok: true, type: "youtube", videoId: id };
+    }
+    return { ok: false, error: "Invalid YouTube link" };
+  }
+
+  // Twitch
+  if (host === "twitch.tv" || host.endsWith(".twitch.tv")) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    const channel = parts[0];
+    if (!channel) return { ok: false, error: "Invalid Twitch channel link" };
+
+    return { ok: true, type: "twitch", channel };
+  }
+
+  return { ok: false, error: "Only YouTube and Twitch links are supported" };
+}
+
+// -------------------- ID generator --------------------
+function newId() {
+  return crypto.randomUUID?.() || `id_${Date.now()}_${Math.random()}`;
+}
+
+function buildYouTubeEmbed(videoId) {
+  return `https://www.youtube.com/embed/${videoId}?rel=0`;
+}
+
+function buildTwitchEmbed(channel) {
+  return `https://player.twitch.tv/?channel=${encodeURIComponent(
+      channel
+  )}&parent=${encodeURIComponent(safeHostname())}`;
+}
+
+function renderAll() {
+  videoGrid.innerHTML = "";
+  videos.forEach(renderOne);
+}
+
+function renderOne(video) {
+  const container = document.createElement("div");
+  container.className = "video-container";
+  container.draggable = true;
+  container.dataset.id = video.id;
+
+  const iframe = document.createElement("iframe");
+  iframe.className = "video-iframe";
+  iframe.allow =
+      "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture";
+  iframe.allowFullscreen = true;
+
+  iframe.src =
+      video.type === "youtube"
+          ? buildYouTubeEmbed(video.videoId)
+          : buildTwitchEmbed(video.channel);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "close-button";
+  closeBtn.innerHTML = "×";
+  closeBtn.title = "Remove video";
+
+  closeBtn.addEventListener("click", () => {
+    videos = videos.filter(v => v.id !== video.id);
+    saveVideosToStorage();
+    container.remove();
+  });
+
+  // Drag & drop reorder
+  container.addEventListener("dragstart", e => {
+    e.dataTransfer.setData("text/plain", video.id);
+  });
+
+  container.addEventListener("dragover", e => {
+    e.preventDefault();
+    container.classList.add("drag-over");
+  });
+
+  container.addEventListener("dragleave", () => {
+    container.classList.remove("drag-over");
+  });
+
+  container.addEventListener("drop", e => {
+    e.preventDefault();
+    container.classList.remove("drag-over");
+
+    const draggedId = e.dataTransfer.getData("text/plain");
+    if (draggedId === video.id) return;
+
+    const from = videos.findIndex(v => v.id === draggedId);
+    const to = videos.findIndex(v => v.id === video.id);
+    if (from === -1 || to === -1) return;
+
+    const [moved] = videos.splice(from, 1);
+    videos.splice(to, 0, moved);
+
+    saveVideosToStorage();
+    renderAll();
+  });
+
+  container.append(iframe, closeBtn);
+  videoGrid.appendChild(container);
+}
+
+function addFromInput() {
+  const value = input.value.trim();
+  if (!value) return showError("Please enter a link");
+
+  if (videos.length >= MAX_VIDEOS) {
+    return showError(`Maximum ${MAX_VIDEOS} videos allowed`);
+  }
+
+  const parsed = parseInputLink(value);
+  if (!parsed.ok) return showError(parsed.error);
+
+  const item = {
+    id: newId(),
+    type: parsed.type,
+    ...(parsed.type === "youtube"
+        ? { videoId: parsed.videoId }
+        : { channel: parsed.channel })
+  };
+
+  videos.push(item);
+  saveVideosToStorage();
+  renderOne(item);
+
+  input.value = "";
+  input.focus();
+}
+
+submitButton.addEventListener("click", addFromInput);
+
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter") addFromInput();
 });
 
-clearAllButton.addEventListener('click', () => {
-  videoGrid.innerHTML = '';
+clearAllButton.addEventListener("click", () => {
+  if (!confirm("Clear all videos?")) return;
   videos = [];
-  saveVideos();
+  saveVideosToStorage();
+  renderAll();
 });
 
-loadVideos();
+renderAll();
