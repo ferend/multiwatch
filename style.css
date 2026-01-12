@@ -202,3 +202,37 @@ body {
 		padding: 10px;
 	}
 }
+
+.layout-controls {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.layout-label {
+	opacity: 0.85;
+	font-weight: bold;
+}
+
+.layout-button {
+	padding: 10px 16px;
+	border: none;
+	border-radius: 20px;
+	background: #2f3542;
+	color: white;
+	font-weight: bold;
+	cursor: pointer;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.layout-button.active {
+	background: linear-gradient(45deg, #ff4757, #e84118);
+}
+
+@media (hover: hover) {
+	.layout-button:hover {
+		transform: scale(1.05);
+		box-shadow: 0 0 12px rgba(255, 71, 87, 0.25);
+	}
+}

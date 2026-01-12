@@ -14,6 +14,14 @@
   <input id="input" type="text" placeholder="Enter a YouTube or Twitch link" autocomplete="off" />
   <button id="submit-button">Add Video</button>
   <button id="clear-all-button">Clear All</button>
+
+  <!-- NEW: Layout presets -->
+  <div class="layout-controls" aria-label="Layout presets">
+    <span class="layout-label">Layout:</span>
+    <button class="layout-button" data-cols="1" type="button">1×1</button>
+    <button class="layout-button" data-cols="2" type="button">2×2</button>
+    <button class="layout-button" data-cols="3" type="button">3×3</button>
+  </div>
 </div>
 
 <div id="error-message" class="error-message" aria-live="polite"></div>
